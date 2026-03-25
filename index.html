@@ -27,18 +27,19 @@
         .t-btn.active { background: #10b981; border-color: #059669; font-weight: bold; }
 
         /* --- CHAT SYSTEMS --- */
-        .chat-container { position: absolute; background: rgba(0,0,0,0.7); border-radius: 8px; display: flex; flex-direction: column; padding: 10px; box-sizing: border-box; }
-        #global-chat { bottom: 10px; left: 10px; width: 300px; height: 200px; border: 1px solid #475569; z-index: 10; }
+        .chat-container { position: absolute; background: rgba(0,0,0,0.7); border-radius: 8px; display: flex; flex-direction: column; padding: 10px; box-sizing: border-box; transition: opacity 0.3s; }
+        #global-chat { bottom: 10px; left: 10px; width: 260px; height: 130px; border: 1px solid #475569; z-index: 10; opacity: 0.8; }
+        #global-chat:hover { opacity: 1; }
         .chat-messages { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
         .chat-messages span { background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; }
         .chat-input-row { display: flex; gap: 5px; }
-        .chat-input-row input { flex-grow: 1; padding: 5px; border: none; border-radius: 4px; }
-        .chat-input-row button { background: #10b981; border: none; color: white; border-radius: 4px; cursor: pointer; padding: 0 10px; }
+        .chat-input-row input { flex-grow: 1; padding: 5px; border: none; border-radius: 4px; font-size: 12px; }
+        .chat-input-row button { background: #10b981; border: none; color: white; border-radius: 4px; cursor: pointer; padding: 0 10px; font-size: 12px; }
 
         /* --- THE SANDBOX MODAL --- */
         #sandbox-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 700px; height: 500px; background: #1e293b; border: 4px solid #64748b; border-radius: 12px; z-index: 50; display: none; flex-direction: row; box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
         #sandbox-area { flex: 2; padding: 20px; position: relative; }
-        #sandbox-chat { flex: 1; border-left: 2px solid #334155; padding: 10px; display: flex; flex-direction: column; background: #0f172a; border-radius: 0 8px 8px 0; }
+        #sandbox-chat { flex: 1; border-left: 2px solid #334155; padding: 10px; display: flex; flex-direction: column; background: #0f172a; border-radius: 0 8px 8px 0; opacity: 1; }
         #sandbox-canvas { width: 100%; height: 250px; background: #0f172a; border-radius: 8px; border: 2px solid #475569; margin-top: 20px; cursor: grab; }
         .close-btn { position: absolute; top: 10px; right: 10px; background: #ef4444; border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold; }
         
@@ -53,7 +54,7 @@
         #btn-down { grid-column: 2; grid-row: 3; }
         #btn-action { grid-column: 2; grid-row: 2; background: rgba(59, 130, 246, 0.5); font-size: 12px; border-radius: 10px; }
         
-        @media (max-width: 768px) { #mobile-controls { display: block; } #global-chat { width: 200px; height: 150px; } }
+        @media (max-width: 768px) { #mobile-controls { display: block; } #global-chat { width: 200px; height: 110px; } }
     </style>
 </head>
 <body>
@@ -69,7 +70,7 @@
         </div>
 
         <div class="chat-container" id="global-chat">
-            <div style="font-size: 12px; color: #94a3b8; font-weight: bold; margin-bottom: 5px;">Global Lab Chat</div>
+            <div style="font-size: 11px; color: #94a3b8; font-weight: bold; margin-bottom: 5px;">Global Lab Chat</div>
             <div class="chat-messages" id="global-messages"></div>
             <div class="chat-input-row">
                 <input type="text" id="global-input" placeholder="Say hello..." maxlength="60">
@@ -177,7 +178,7 @@
 
         // --- INITIALIZATION & AUTH ---
         window.checkTeacherLogin = function() {
-            const pass = prompt("Enter Teacher Password");
+            const pass = prompt("Enter Teacher Password (hint: IWS):");
             if(pass === "IWS") startGame('teacher');
             else alert("Incorrect password.");
         };
@@ -287,7 +288,7 @@
 
         // --- GAME LOOP & PHYSICS ---
         let lastFirebaseUpdate = 0;
-        let animatedTilt = 0.2; 
+        let animatedTilt = 0; 
         let currentLoadTorque = 0;
         let currentPlayerTorque = 0;
 
@@ -344,11 +345,21 @@
                 }
             }
 
-            // Animate Plank Tilt Based on Torque War
-            let targetTilt = 0.2; // Default resting tilted down towards load
+            // --- LOGIC FIX: Animate Plank Tilt Based on Torque War ---
+            // Determine which side of the fulcrum the load is resting on
+            let loadIsOnLeft = giantLever.loadX < giantLever.fulcrumX;
+            
+            // If load is on the left, gravity pulls the left side down (negative rotation)
+            // If load is on the right, gravity pulls the right side down (positive rotation)
+            let restingTilt = loadIsOnLeft ? -0.2 : 0.2;
+            let liftedTilt = loadIsOnLeft ? 0.1 : -0.1;
+
+            let targetTilt = restingTilt;
             if (currentPlayerTorque >= currentLoadTorque && currentLoadTorque > 0) {
-                targetTilt = -0.1; // Lifted up successfully!
+                targetTilt = liftedTilt; // Successfully lifted!
             }
+            
+            // Smoothly animate towards the target tilt
             animatedTilt += (targetTilt - animatedTilt) * 0.1;
         }
 
@@ -430,7 +441,7 @@
 
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
-        // --- THE SANDBOX MANIPULATIVE ENGINE (Same as before) ---
+        // --- THE SANDBOX MANIPULATIVE ENGINE ---
         const sCanvas = document.getElementById('sandbox-canvas');
         const sCtx = sCanvas.getContext('2d');
         let sItems = [
